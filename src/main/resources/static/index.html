@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#6b3fd4">
+<title>HERALLY</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#f6f3fb;margin:0;color:#1d1a2b}
+  .wrap{max-width:780px;margin:0 auto;padding:20px 14px 60px}
+  h1{margin:0}
+  .sub{color:#665f80;margin:2px 0 14px}
+  .box{background:#fff;border-radius:12px;padding:14px;margin-top:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  input,textarea,select{width:100%;box-sizing:border-box;padding:10px;border:1px solid #cdc7e0;border-radius:8px;font-size:15px;font-family:inherit}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .row>*{flex:1;min-width:120px}
+  button{background:#6b3fd4;color:#fff;border:0;border-radius:8px;padding:10px 14px;font-size:14px;cursor:pointer}
+  button.alt{background:#ece6fb;color:#4a28a0}
+  button.red{background:#d32f2f}
+  button.green{background:#2e7d32}
+  button:disabled{opacity:.5}
+  .chips button{background:#fff;color:#1d1a2b;border:1px solid #cdc7e0}
+  .note{background:#fff8e1;border-left:4px solid #f9a825;padding:8px 10px;border-radius:6px;font-size:13px;margin-top:12px}
+  .offbanner{background:#b71c1c;color:#fff;padding:10px 12px;border-radius:8px;margin-top:12px;font-weight:600}
+  .card{background:#fff;border-radius:12px;padding:14px;margin-top:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .meta{color:#555;font-size:14px;margin:2px 0}
+  .why{background:#f1ecff;border-radius:8px;padding:8px;margin:8px 0;font-size:14px}
+  .insight{background:#e8f5e9;border-radius:8px;padding:8px;margin:8px 0;font-size:14px}
+  .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .acts a{text-decoration:none}
+  .err{color:#b00020}
+  .timer{font-size:28px;font-weight:700}
+  .num{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #eee}
+  .num:last-child{border-bottom:0}
+  small{color:#776f94}
+  ul.inst{margin:6px 0 0 18px;padding:0;font-size:14px}
+  .offbox{border:2px solid #b71c1c}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🛡️ HERALLY</h1>
+  <div class="sub">Find nearby places to get help or wait in a public setting. Works offline too.</div>
+
+  <div id="offBanner" class="offbanner" style="display:none">
+    📴 You're offline. Showing your saved safety information.
+  </div>
+
+  <div class="note">
+    HERALLY does not tell you whether an area is safe. In an emergency call
+    <b>112</b> (India emergency), <b>100</b> (police) or <b>181</b> (women helpline).
+  </div>
+
+  <!-- ============ OFFLINE CONTROLS (always visible) ============ -->
+  <div class="box offbox">
+    <b>🔴 Offline Safe Mode</b>
+    <div class="meta">Save your safety info before you travel. It stays on this device and works without internet.</div>
+    <div class="row">
+      <button class="red" id="prepBtn" onclick="prepareOffline()">💾 Prepare Offline Safety</button>
+      <button class="alt" onclick="togglePanel()">👁️ Open / close Offline Safe Mode</button>
+      <button class="alt" id="simBtn" onclick="toggleSim()">📴 Simulate offline (demo)</button>
+    </div>
+    <small id="prepStatus"></small><br>
+    <small id="swStatus"></small>
+  </div>
+
+  <!-- ============ OFFLINE PANEL ============ -->
+  <div id="offPanel" style="display:none"></div>
+
+  <!-- ============ ONLINE UI ============ -->
+  <div id="onlineUI">
+    <div class="box">
+      <b>📍 Your location</b>
+      <div class="row">
+        <input id="lat" value="12.9716" placeholder="Latitude">
+        <input id="lng" value="77.5946" placeholder="Longitude">
+        <button class="alt" onclick="useMyLocation()">Use my location</button>
+      </div>
+      <small id="locStatus">Default: Bengaluru. Click "Use my location" to use GPS.</small>
+    </div>
+
+    <div class="box">
+      <b>🗣️ Tell me what happened</b>
+      <textarea id="situation" rows="3" placeholder="e.g. My cab dropped me at the wrong place, my phone is at 12%. I need somewhere open nearby to charge it and wait for my friend."></textarea>
+      <div class="row chips">
+        <button onclick="quick('I need medical help')">🏥 Medical</button>
+        <button onclick="quick('I need police assistance')">👮 Police</button>
+        <button onclick="quick('I need an open public place to wait')">🏪 Public place</button>
+        <button onclick="quick('I need transport such as a taxi stand or metro station')">🚕 Transport</button>
+        <button onclick="quick('I need a women support centre')">👩 Women's support</button>
+      </div>
+      <div class="row">
+        <button class="red" onclick="quick('')">🛡️ FIND SAFE STOP</button>
+        <button onclick="findHelp()">🔍 Search my situation</button>
+      </div>
+    </div>
+
+    <div id="status"></div>
+    <div id="plan"></div>
+    <div id="results"></div>
+
+    <div class="box">
+      <b>📰 Recent local information</b>
+      <div class="row">
+        <input id="area" placeholder="Area name, e.g. Koramangala Bengaluru">
+        <button class="alt" onclick="loadNews()">Check recent reports</button>
+      </div>
+      <div id="news"></div>
+    </div>
+  </div>
+
+  <!-- ============ ALWAYS VISIBLE ============ -->
+  <div class="box">
+    <b>👥 Trusted contact</b>
+    <div class="row">
+      <input id="cname" placeholder="Name (e.g. Best Friend)">
+      <input id="cphone" placeholder="Phone with country code, e.g. 919876543210">
+      <button class="alt" onclick="saveContact()">Save</button>
+    </div>
+    <small id="cstatus"></small>
+  </div>
+
+  <div class="box" id="checkinBox">
+    <b>⏱️ Check-in</b>
+    <div id="checkinIdle">
+      <div class="row">
+        <select id="mins">
+          <option value="15">15 minutes</option>
+          <option value="30">30 minutes</option>
+          <option value="60">60 minutes</option>
+          <option value="1">1 minute (demo)</option>
+        </select>
+        <button onclick="startCheckin()">Start check-in</button>
+      </div>
+      <small id="ciPlace">Tip: choose a place above with "Go here + check-in".</small>
+    </div>
+    <div id="checkinActive" style="display:none">
+      <div>🟢 Check-in active — heading to <b id="ciDest">my location</b></div>
+      <div class="timer" id="ciTime">00:00</div>
+      <div class="row">
+        <button class="green" onclick="imSafe()">✅ I'm Safe</button>
+        <button class="red" onclick="needHelp()">🆘 Need Help</button>
+      </div>
+    </div>
+    <div id="ciAlert"></div>
+  </div>
+</div>
+
+<script>
+/* ===================== helpers ===================== */
+let places = [];
+let destination = null;
+let timerId = null, endAt = 0;
+let forceOffline = false;       // demo switch
+let panelOpen = false;
+
+const $ = id => document.getElementById(id);
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function post(url, body){
+  const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  const j = await r.json();
+  if(!r.ok) throw new Error(j.error || "Request failed");
+  return j;
+}
+
+function isOffline(){ return forceOffline || !navigator.onLine; }
+
+function haversineKm(a, b, c, d){
+  const R = 6371, rad = x => x * Math.PI / 180;
+  const dLat = rad(c - a), dLon = rad(d - b);
+  const h = Math.sin(dLat/2)**2 + Math.cos(rad(a)) * Math.cos(rad(c)) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function getPos(){
+  return new Promise((resolve, reject) => {
+    if(!navigator.geolocation){ reject(new Error("Geolocation not supported")); return; }
+    navigator.geolocation.getCurrentPosition(
+      p => resolve({lat: p.coords.latitude, lng: p.coords.longitude}),
+      e => reject(new Error(e.message)),
+      {enableHighAccuracy:true, timeout:10000, maximumAge:60000});
+  });
+}
+
+/* ===================== OFFLINE STORAGE ===================== */
+const OFF_KEY = "herally_offline";
+const LOC_KEY = "herally_lastloc";
+
+// Edit these for your country. Shown even if nothing has been prepared.
+const NUMBERS = [
+  {label:"National emergency", num:"112"},
+  {label:"Police", num:"100"},
+  {label:"Fire", num:"101"},
+  {label:"Ambulance", num:"108"},
+  {label:"Women helpline", num:"181"},
+  {label:"Women in distress", num:"1091"}
+];
+
+const INSTRUCTIONS = [
+  "Move toward a well-lit, staffed public place (hospital, petrol station, shop, station) if you can.",
+  "Call 112 if you are in danger. Calls and SMS can work without mobile data.",
+  "Send your last known location to your trusted contact using the SMS button.",
+  "Turn on battery saver and lower screen brightness to keep your phone alive.",
+  "Stay on the line and tell the operator your location, using the coordinates below if needed."
+];
+
+function loadOff(){ try{ return JSON.parse(localStorage.getItem(OFF_KEY) || "null"); }catch(e){ return null; } }
+function saveOff(d){ try{ localStorage.setItem(OFF_KEY, JSON.stringify(d)); return true; }catch(e){ return false; } }
+function loadLoc(){ try{ return JSON.parse(localStorage.getItem(LOC_KEY) || "null"); }catch(e){ return null; } }
+function saveLoc(lat, lng){ try{ localStorage.setItem(LOC_KEY, JSON.stringify({lat, lng, time: Date.now()})); }catch(e){} }
+
+function slim(p){
+  return {title:p.title, address:p.address, phone:p.phone, type:p.type || p.category,
+          lat:p.lat, lng:p.lng, directionsUrl:p.directionsUrl};
+}
+
+/* ===================== PREPARE OFFLINE SAFETY ===================== */
+async function prepareOffline(){
+  if(isOffline()){ alert("Connect to the internet to prepare your offline safety info."); return; }
+  const btn = $("prepBtn"); btn.disabled = true;
+  $("prepStatus").textContent = "Preparing… getting your location and nearby help points.";
+  try{
+    let lat = parseFloat($("lat").value), lng = parseFloat($("lng").value);
+    try{ const p = await getPos(); lat = p.lat; lng = p.lng; $("lat").value = lat.toFixed(6); $("lng").value = lng.toFixed(6); }catch(e){}
+    saveLoc(lat, lng);
+
+    const data = await post("/api/safestop", {lat, lng, situation: ""});   // police + hospital + pharmacy
+    let saved = (data.results || []).map(slim);
+
+    const old = loadOff();
+    if(old && old.places){            // keep places the user saved manually
+      old.places.forEach(o => { if(!saved.some(s => s.title === o.title && s.address === o.address)) saved.push(o); });
+    }
+    saveOff({preparedAt: Date.now(), places: saved});
+    fetch("/").catch(()=>{});          // make sure the page itself is cached
+    $("prepStatus").textContent = "✅ Saved " + saved.length + " help points, your location and emergency info on this device (" + new Date().toLocaleString() + ").";
+    if(panelOpen || isOffline()) renderOffline();
+  }catch(e){
+    $("prepStatus").innerHTML = "<span class='err'>" + esc(e.message) + "</span>";
+  }
+  btn.disabled = false;
+}
+
+function showPrepStatus(){
+  const d = loadOff();
+  if(d && d.preparedAt) $("prepStatus").textContent = "Last prepared: " + new Date(d.preparedAt).toLocaleString() + " · " + (d.places||[]).length + " saved help points.";
+  else $("prepStatus").textContent = "Nothing saved yet. Tap Prepare Offline Safety while online.";
+}
+
+function savePlace(i){
+  const p = places[i];
+  const d = loadOff() || {preparedAt: Date.now(), places: []};
+  d.places = d.places || [];
+  if(!d.places.some(s => s.title === p.title && s.address === p.address)) d.places.push(slim(p));
+  saveOff(d);
+  saveLoc(parseFloat($("lat").value), parseFloat($("lng").value));
+  showPrepStatus();
+  alert("Saved \"" + p.title + "\" for offline use.");
+}
+
+/* ===================== OFFLINE PANEL ===================== */
+function smsLink(phone, body){
+  const sep = /iPhone|iPad|iPod/i.test(navigator.userAgent) ? "&" : "?";
+  return "sms:" + phone + sep + "body=" + encodeURIComponent(body);
+}
+
+function buildMessage(loc){
+  let m = "I need help. My phone may have no internet.";
+  if(loc){
+    m += " My last known location: https://www.google.com/maps?q=" + loc.lat + "," + loc.lng +
+         " (" + loc.lat.toFixed(5) + ", " + loc.lng.toFixed(5) + ") at " + new Date(loc.time).toLocaleTimeString() + ".";
+  }
+  m += " Please call me or contact emergency services.";
+  return m;
+}
+
+function renderOffline(){
+  const d = loadOff();
+  const loc = loadLoc();
+  const c = getContact();
+  let pts = (d && d.places) ? d.places.slice() : [];
+  if(loc){
+    pts.forEach(p => p.dist = haversineKm(loc.lat, loc.lng, p.lat, p.lng));
+    pts.sort((a,b) => a.dist - b.dist);
+  }
+  const msg = buildMessage(loc);
+
+  $("offPanel").innerHTML = `
+  <div class="box offbox">
+    <b>🚨 Emergency numbers</b>
+    ${NUMBERS.map(n => `<div class="num"><span>${esc(n.label)} — <b>${esc(n.num)}</b></span>
+        <a href="tel:${esc(n.num)}"><button class="red">📞 Call</button></a></div>`).join("")}
+  </div>
+
+  <div class="box offbox">
+    <b>👥 Trusted contact</b>
+    ${c ? `<div class="num"><span>${esc(c.name || "Contact")} — ${esc(c.phone)}</span>
+        <span class="acts"><a href="tel:+${esc(c.phone)}"><button class="green">📞 Call</button></a></span></div>`
+        : `<div class="meta">No contact saved. Add one in the Trusted contact box below.</div>`}
+  </div>
+
+  <div class="box offbox">
+    <b>📍 Last known location</b>
+    ${loc ? `<div class="meta">${loc.lat.toFixed(5)}, ${loc.lng.toFixed(5)} · saved ${esc(new Date(loc.time).toLocaleString())}</div>`
+          : `<div class="meta">No location saved yet.</div>`}
+    <div class="acts">
+      <button class="alt" onclick="updateLocOffline()">🔄 Update from GPS</button>
+      ${loc ? `<a href="geo:${loc.lat},${loc.lng}?q=${loc.lat},${loc.lng}"><button class="alt">🗺️ Open in maps app</button></a>` : ""}
+    </div>
+    <small>GPS can work without internet. Map tiles may not load unless your maps app has offline maps.</small>
+  </div>
+
+  <div class="box offbox">
+    <b>📝 Emergency message</b>
+    <textarea id="offMsg" rows="4">${esc(msg)}</textarea>
+    <div class="acts">
+      ${c ? `<button class="red" onclick="sendSms()">✉️ SMS to ${esc(c.name || "trusted contact")}</button>` : ""}
+      <button class="alt" onclick="copyMsg()">📋 Copy message</button>
+    </div>
+    <small>SMS uses your mobile network, not mobile data. You still have to press Send in your messaging app.</small>
+  </div>
+
+  <div class="box offbox">
+    <b>🏥 Saved help points</b>
+    ${pts.length ? pts.map(p => `
+      <div class="num" style="display:block">
+        <b>${esc(p.title)}</b> <small>${esc(p.type || "")}</small>
+        <div class="meta">${esc(p.address || "")}</div>
+        <div class="meta">${p.dist != null ? "≈ " + p.dist.toFixed(2) + " km from your last known location · " : ""}${Number(p.lat).toFixed(5)}, ${Number(p.lng).toFixed(5)}</div>
+        <div class="acts">
+          ${p.phone ? `<a href="tel:${esc(p.phone.replace(/[^+\d]/g,''))}"><button class="green">📞 Call</button></a>` : ""}
+          <a href="geo:${p.lat},${p.lng}?q=${p.lat},${p.lng}(${encodeURIComponent(p.title || "")})"><button class="alt">🗺️ Maps app</button></a>
+        </div>
+      </div>`).join("")
+      : `<div class="meta">No help points saved yet. Tap <b>Prepare Offline Safety</b> while online.</div>`}
+    ${d && d.preparedAt ? `<small>Prepared ${esc(new Date(d.preparedAt).toLocaleString())}. Opening hours may have changed since.</small>` : ""}
+  </div>
+
+  <div class="box offbox">
+    <b>ℹ️ Basic emergency instructions</b>
+    <ul class="inst">${INSTRUCTIONS.map(t => `<li>${esc(t)}</li>`).join("")}</ul>
+  </div>`;
+}
+
+async function updateLocOffline(){
+  try{
+    const p = await getPos();
+    saveLoc(p.lat, p.lng);
+    $("lat").value = p.lat.toFixed(6); $("lng").value = p.lng.toFixed(6);
+    renderOffline();
+  }catch(e){ alert("Could not get GPS location: " + e.message); }
+}
+
+function sendSms(){
+  const c = getContact();
+  if(!c){ alert("Save a trusted contact first."); return; }
+  const text = $("offMsg").value;
+  window.location.href = smsLink("+" + c.phone, text);
+}
+
+function copyMsg(){
+  const t = $("offMsg"); t.select();
+  try{ navigator.clipboard.writeText(t.value); }catch(e){ document.execCommand("copy"); }
+}
+
+/* ===================== ONLINE / OFFLINE MODE ===================== */
+function refreshMode(){
+  const off = isOffline();
+  $("offBanner").style.display = off ? "block" : "none";
+  $("onlineUI").style.display = off ? "none" : "block";
+  $("simBtn").textContent = forceOffline ? "🌐 Go back online" : "📴 Simulate offline (demo)";
+  const show = off || panelOpen;
+  $("offPanel").style.display = show ? "block" : "none";
+  if(show) renderOffline();
+}
+function togglePanel(){ panelOpen = !panelOpen; refreshMode(); }
+function toggleSim(){ forceOffline = !forceOffline; refreshMode(); }
+window.addEventListener("online", refreshMode);
+window.addEventListener("offline", refreshMode);
+
+/* ===================== LOCATION (online UI) ===================== */
+async function useMyLocation(){
+  $("locStatus").textContent = "Getting your location…";
+  try{
+    const p = await getPos();
+    $("lat").value = p.lat.toFixed(6);
+    $("lng").value = p.lng.toFixed(6);
+    saveLoc(p.lat, p.lng);
+    $("locStatus").textContent = "Using your current location.";
+  }catch(e){
+    $("locStatus").textContent = "Could not get location (" + e.message + "). Enter coordinates manually.";
+  }
+}
+
+/* ===================== SAFE STOP SEARCH ===================== */
+let lastMsg = "";
+function quick(text){ $("situation").value = text; findHelp(); }
+
+async function findHelp(){
+  const lat = parseFloat($("lat").value), lng = parseFloat($("lng").value);
+  if(isNaN(lat) || isNaN(lng)){ alert("Enter a valid latitude and longitude."); return; }
+  $("status").innerHTML = "<div class='box'>Understanding your situation and searching nearby…</div>";
+  $("results").innerHTML = ""; $("plan").innerHTML = "";
+  try{
+    const data = await post("/api/safestop", {lat, lng, situation: $("situation").value.trim()});
+    saveLoc(lat, lng);
+    places = data.results || [];
+    $("status").innerHTML = "";
+    const p = data.plan || {};
+    const note = (p.source && p.source !== "ai")
+      ? "<br><small>AI is unavailable right now, so places were matched to the words in your message.</small>" : "";
+    $("plan").innerHTML = "<div class='box'>🧠 " + esc(p.summary || "") +
+      "<br><small>Searched for: " + esc((p.categories||[]).join(", ")) + "</small>" + note + "</div>";
+    lastMsg = data.message || "";
+    render();
+  }catch(e){
+    $("status").innerHTML = "<div class='box err'>" + esc(e.message) +
+      "<div class='acts'><button onclick='panelOpen=true;refreshMode()'>🔴 Open Offline Safe Mode</button></div></div>";
+  }
+}
+
+function render(){
+  if(!places.length){ $("results").innerHTML = "<div class='box'>" + esc(lastMsg || "No places found nearby. Try different words or check the coordinates.") + "</div>"; return; }
+  const head = lastMsg ? "<div class='box'><b>✅ " + esc(lastMsg) + "</b></div>" : "";
+  $("results").innerHTML = head + places.map((p,i) => {
+    const tel = p.phone ? p.phone.replace(/[^+\d]/g,"") : "";
+    return `
+    <div class="card">
+      <b>${esc(p.title)}</b>
+      <div class="meta">${esc(p.type || p.category || "")} · ⭐ ${esc(p.rating ?? "–")} · 📍 ${esc(p.distanceKm)} km</div>
+      <div class="meta">${esc(p.address || "")}</div>
+      ${p.open_state ? `<div class="meta">🕐 ${esc(p.open_state)}</div>` : ""}
+      <div class="why">💡 ${esc(p.why)}</div>
+      <div id="ins${i}"></div>
+      <div class="acts">
+        ${tel ? `<a href="tel:${esc(tel)}"><button class="green">📞 Call</button></a>` : ""}
+        <a href="${esc(p.directionsUrl)}" target="_blank"><button>🗺️ Directions</button></a>
+        ${p.data_id ? `<button class="alt" onclick="insights(${i})">🔎 Review insights</button>` : ""}
+        <button class="alt" onclick="savePlace(${i})">💾 Save for offline</button>
+        <button class="alt" onclick="shareTo(${i})">📨 Share with contact</button>
+        <button class="alt" onclick="goHere(${i})">⏱️ Go here + check-in</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+async function insights(i){
+  const box = $("ins"+i);
+  box.innerHTML = "<div class='insight'>Reading recent reviews…</div>";
+  try{
+    const d = await post("/api/reviews", {dataId: places[i].data_id, name: places[i].title});
+    box.innerHTML = "<div class='insight'><b>AI Review Insights</b><br>" + esc(d.insight) +
+      "<br><small>Review-derived information, not a safety guarantee.</small></div>";
+  }catch(e){ box.innerHTML = "<div class='err'>" + esc(e.message) + "</div>"; }
+}
+
+async function loadNews(){
+  const area = $("area").value.trim();
+  if(!area){ alert("Type an area name first."); return; }
+  $("news").innerHTML = "<p>Searching recent news…</p>";
+  try{
+    const d = await post("/api/news", {area});
+    $("news").innerHTML = "<p>" + esc(d.summary) + "</p>" +
+      (d.items||[]).map(n => `<div class="meta">• <a href="${esc(n.link)}" target="_blank">${esc(n.title)}</a>
+        <small>${esc(n.source || "")} ${esc(n.date || "")}</small></div>`).join("") +
+      "<small>Context only — not a danger score.</small>";
+  }catch(e){ $("news").innerHTML = "<p class='err'>" + esc(e.message) + "</p>"; }
+}
+
+/* ===================== TRUSTED CONTACT ===================== */
+function getContact(){
+  try{ return JSON.parse(localStorage.getItem("herally_contact") || "null"); }catch(e){ return null; }
+}
+function saveContact(){
+  const c = {name: $("cname").value.trim(), phone: $("cphone").value.replace(/\D/g,"")};
+  if(!c.phone){ alert("Enter a phone number with country code."); return; }
+  try{ localStorage.setItem("herally_contact", JSON.stringify(c)); }catch(e){}
+  showContact(c);
+  if(!$("offPanel").style.display || $("offPanel").style.display !== "none") renderOffline();
+}
+function showContact(c){
+  $("cstatus").textContent = c ? ("Saved: " + (c.name || "Contact") + " (" + c.phone + ")") : "";
+}
+
+// Online: WhatsApp. Offline: SMS (works without mobile data).
+function alertContact(text){
+  const c = getContact();
+  if(!c){ alert("Save a trusted contact first."); return; }
+  if(isOffline()) window.location.href = smsLink("+" + c.phone, text);
+  else window.open("https://wa.me/" + c.phone + "?text=" + encodeURIComponent(text), "_blank");
+}
+function myLocationLink(){
+  const loc = loadLoc();
+  const lat = loc ? loc.lat : $("lat").value, lng = loc ? loc.lng : $("lng").value;
+  return "https://www.google.com/maps?q=" + lat + "," + lng;
+}
+function shareTo(i){
+  const p = places[i];
+  alertContact("I'm heading to " + p.title + " (" + (p.address || "") + "). Directions: " + p.directionsUrl +
+               "\nMy current location: " + myLocationLink());
+}
+
+/* ===================== CHECK-IN ===================== */
+function goHere(i){
+  destination = places[i];
+  window.open(destination.directionsUrl, "_blank");
+  $("ciPlace").textContent = "Destination: " + destination.title;
+  $("checkinBox").scrollIntoView({behavior:"smooth"});
+}
+function startCheckin(){
+  const mins = parseInt($("mins").value, 10);
+  endAt = Date.now() + mins * 60000;
+  $("ciDest").textContent = destination ? destination.title : "my location";
+  $("checkinIdle").style.display = "none";
+  $("checkinActive").style.display = "block";
+  $("ciAlert").innerHTML = "";
+  tick();
+  timerId = setInterval(tick, 1000);
+  if(destination && getContact() && confirm("Send your trusted contact a message about this check-in?")){
+    alertContact("I'm going to " + destination.title + ". I'll check in with you in " + mins + " minutes. Location: " + myLocationLink());
+  }
+}
+function tick(){
+  const left = Math.max(0, endAt - Date.now());
+  $("ciTime").textContent = String(Math.floor(left/60000)).padStart(2,"0") + ":" + String(Math.floor(left%60000/1000)).padStart(2,"0");
+  if(left === 0){ clearInterval(timerId); stopCheckin(); helpUi("Your check-in time ran out."); }
+}
+function stopCheckin(){
+  clearInterval(timerId);
+  $("checkinActive").style.display = "none";
+  $("checkinIdle").style.display = "block";
+}
+function imSafe(){
+  stopCheckin();
+  $("ciAlert").innerHTML = "<p>✅ Check-in complete.</p>";
+  if(getContact() && confirm("Tell your trusted contact you're safe?")) alertContact("I'm safe. Thanks for checking in.");
+}
+function needHelp(){ stopCheckin(); helpUi("You pressed Need Help."); }
+function helpUi(reason){
+  $("ciAlert").innerHTML = "<div class='note'><b>" + esc(reason) + "</b> Call <b>112</b> if you are in danger." +
+    "<div class='acts'><a href='tel:112'><button class='red'>📞 Call 112</button></a>" +
+    "<button onclick='sendHelp()'>📨 Alert trusted contact" + (isOffline() ? " (SMS)" : "") + "</button></div></div>";
+}
+function sendHelp(){
+  alertContact("I need help. Please call me. My last known location: " + myLocationLink() +
+               (destination ? "\nI was heading to " + destination.title + "." : ""));
+}
+
+/* ===================== START UP ===================== */
+(function init(){
+  const c = getContact();
+  if(c){ $("cname").value = c.name || ""; $("cphone").value = c.phone || ""; showContact(c); }
+  showPrepStatus();
+  refreshMode();
+
+  if("serviceWorker" in navigator){
+    navigator.serviceWorker.register("/sw.js")
+      .then(() => navigator.serviceWorker.ready)
+      .then(() => { $("swStatus").textContent = "✅ App is cached: it will open even with no internet."; })
+      .catch(() => { $("swStatus").textContent = "Offline page caching unavailable here (needs localhost or HTTPS). Saved safety info still works while this page is open."; });
+  } else {
+    $("swStatus").textContent = "This browser does not support offline page caching.";
+  }
+})();
+</script>
+</body>
+</html>
